@@ -115,6 +115,9 @@ typedef struct DASHContext {
 #if FF_API_DASH_MIN_SEG_DURATION
     int min_seg_duration;
 #endif
+    // PLEX
+    int64_t time_delta;
+    // PLEX
     int64_t seg_duration;
     int remove_at_exit;
     int use_template;
@@ -131,6 +134,10 @@ typedef struct DASHContext {
     const char *init_seg_name;
     const char *media_seg_name;
     const char *utc_timing_url;
+    // PLEX
+    int break_non_keyframes;
+    int skip_to_segment;
+    // PLEX
     const char *method;
     const char *user_agent;
     int hls_playlist;
@@ -1303,6 +1310,12 @@ static int dash_init(AVFormatContext *s)
                 else
                     av_dict_set(&opts, "movflags", "frag_custom+dash+delay_moov+skip_trailer", 0);
             }
+
+            // PLEX
+            if (c->skip_to_segment) {
+                av_dict_set(&opts, "movflags", "+frag_discont", AV_DICT_APPEND);
+            }
+            // PLEX
         } else {
             av_dict_set_int(&opts, "cluster_time_limit", c->seg_duration / 1000, 0);
             av_dict_set_int(&opts, "cluster_size_limit", 5 * 1024 * 1024, 0); // set a large cluster size limit
@@ -1318,6 +1331,11 @@ static int dash_init(AVFormatContext *s)
         avio_flush(ctx->pb);
 
         av_log(s, AV_LOG_VERBOSE, "Representation %d init segment will be written to: %s\n", i, filename);
+
+        // PLEX
+        if (c->skip_to_segment > 1)
+            av_opt_set_int(os->ctx, "fragments", c->skip_to_segment, AV_OPT_SEARCH_CHILDREN);
+        // PLEX
 
         s->streams[i]->time_base = st->time_base;
         // If the muxer wants to shift timestamps, request to have them shifted
@@ -1342,7 +1360,7 @@ static int dash_init(AVFormatContext *s)
         os->first_pts = AV_NOPTS_VALUE;
         os->max_pts = AV_NOPTS_VALUE;
         os->last_dts = AV_NOPTS_VALUE;
-        os->segment_index = 1;
+        os->segment_index = c->skip_to_segment; // PLEX
 
         if (s->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
             c->nr_of_streams_to_flush++;
@@ -1725,18 +1743,18 @@ static int dash_write_packet(AVFormatContext *s, AVPacket *pkt)
                                          frame_duration) / AV_TIME_BASE;
     }
 
-    if (c->use_template && !c->use_timeline) {
+    if ((c->use_template && !c->use_timeline) || 1) { // PLEX
         elapsed_duration = pkt->pts - os->first_pts;
-        seg_end_duration = (int64_t) os->segment_index * c->seg_duration;
+        seg_end_duration = (int64_t) (os->segment_index - c->skip_to_segment + 1) * c->seg_duration; // PLEX
     } else {
         elapsed_duration = pkt->pts - os->start_pts;
         seg_end_duration = c->seg_duration;
     }
 
     if ((!c->has_video || st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) &&
-        pkt->flags & AV_PKT_FLAG_KEY && os->packets_written &&
+        ((pkt->flags & AV_PKT_FLAG_KEY) || c->break_non_keyframes) && os->packets_written && // PLEX: break_non_keyframes / packets_written
         av_compare_ts(elapsed_duration, st->time_base,
-                      seg_end_duration, AV_TIME_BASE_Q) >= 0) {
+                      seg_end_duration - c->time_delta, AV_TIME_BASE_Q) >= 0) { // PLEX: time_delta
         int64_t prev_duration = c->last_duration;
 
         c->last_duration = av_rescale_q(pkt->pts - os->start_pts,
@@ -1898,6 +1916,9 @@ static const AVOption options[] = {
     { "min_seg_duration", "minimum segment duration (in microseconds) (will be deprecated)", OFFSET(min_seg_duration), AV_OPT_TYPE_INT, { .i64 = 5000000 }, 0, INT_MAX, E },
 #endif
     { "seg_duration", "segment duration (in seconds, fractional value can be set)", OFFSET(seg_duration), AV_OPT_TYPE_DURATION, { .i64 = 5000000 }, 0, INT_MAX, E },
+    // PLEX
+    { "time_delta", "set approximation value used for the segment times", OFFSET(time_delta), AV_OPT_TYPE_DURATION, { .i64 = 0 }, 0, INT64_MAX, E },
+    // PLEX
     { "remove_at_exit", "remove all segments when finished", OFFSET(remove_at_exit), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, E },
     { "use_template", "Use SegmentTemplate instead of SegmentList", OFFSET(use_template), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, E },
     { "use_timeline", "Use SegmentTimeline in SegmentTemplate", OFFSET(use_timeline), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, E },
@@ -1906,6 +1927,10 @@ static const AVOption options[] = {
     { "init_seg_name", "DASH-templated name to used for the initialization segment", OFFSET(init_seg_name), AV_OPT_TYPE_STRING, {.str = "init-stream$RepresentationID$.$ext$"}, 0, 0, E },
     { "media_seg_name", "DASH-templated name to used for the media segments", OFFSET(media_seg_name), AV_OPT_TYPE_STRING, {.str = "chunk-stream$RepresentationID$-$Number%05d$.$ext$"}, 0, 0, E },
     { "utc_timing_url", "URL of the page that will return the UTC timestamp in ISO format", OFFSET(utc_timing_url), AV_OPT_TYPE_STRING, { 0 }, 0, 0, E },
+    // PLEX
+    { "skip_to_segment", "first segment number to actually write", OFFSET(skip_to_segment), AV_OPT_TYPE_INT, { .i64 = 1 }, 1, INT_MAX, E },
+    { "break_non_keyframes", "allow breaking segments on non-keyframes", OFFSET(break_non_keyframes), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, E },
+    // PLEX
     { "method", "set the HTTP method", OFFSET(method), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, E },
     { "http_user_agent", "override User-Agent field in HTTP header", OFFSET(user_agent), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, E},
     { "http_persistent", "Use persistent HTTP connections", OFFSET(http_persistent), AV_OPT_TYPE_BOOL, {.i64 = 0 }, 0, 1, E },
