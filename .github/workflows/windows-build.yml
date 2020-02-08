@@ -18,7 +18,7 @@ jobs:
         C:\tools\msys64\usr\bin\bash -lc "./build.sh -b"
       shell: cmd
       env:
-        HOME: ${{ runner.workspace }}/ffmpeg_build
+        HOME: ${{ runner.workspace }}/light-transcoder-ffmpeg
     - uses: actions/upload-artifact@master
       name: Upload Artifact
       with:
@@ -36,7 +36,7 @@ jobs:
         run: 7z a ffmpeg.zip ffmpeg/
       - name: Create Build Number
         id: buildnumber
-        uses: einaregilsson/build-number@v1 
+        uses: Maxou44/build-number@v1 
         with: 
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Release
