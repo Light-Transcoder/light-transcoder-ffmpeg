@@ -12,7 +12,9 @@ jobs:
     - name: Install MSYS2
       run: choco install msys2 --no-progress
     - name: Install MinGW64
-      run: C:\tools\msys64\usr\bin\bash -lc "./setup.sh"
+      run: |
+        set MSYS2_PATH_TYPE=inherit
+        C:\msys64\usr\bin\mintty.exe -w hide /bin/env MSYSTEM=MINGW64 /bin/bash -lc "./setup.sh"
     - name: Build FFmpeg
       run: |
         call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
