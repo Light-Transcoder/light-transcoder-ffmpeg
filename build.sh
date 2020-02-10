@@ -2,7 +2,7 @@ echo $PATH
 pacman --sync --noconfirm --needed base-devel
 pacman --sync --noconfirm --needed p7zip
 pacman --sync --noconfirm --needed zlib
-pacman --sync --noconfirm --needed libgnutls-devel
+pacman --sync --noconfirm --needed openssl libopenssl openssl-devel gnutls libgnutls libgnutls-devel
 
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 
