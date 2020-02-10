@@ -4,8 +4,6 @@ pacman --sync --noconfirm --needed p7zip
 pacman --sync --noconfirm --needed zlib
 pacman --sync --noconfirm --needed openssl libopenssl openssl-devel gnutls libgnutls libgnutls-devel mingw-w64-x86_64-gnutls
 
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
-
 wget http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win64.exe -O /bin/yasm.exe
 
 ./configure \
@@ -63,5 +61,5 @@ wget http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win64.exe -O /bin/
 --disable-shared \
 --enable-libopenmpt
 
-make
+make -j$(nproc)
 make install
