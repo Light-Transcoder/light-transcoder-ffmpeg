@@ -40,7 +40,6 @@ wget http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win64.exe -O /bin/
 --enable-libzimg \
 --enable-lzma \
 --enable-zlib \
---enable-gmp \
 --enable-libvidstab \
 --enable-libvorbis \
 --enable-libvo-amrwbenc \
