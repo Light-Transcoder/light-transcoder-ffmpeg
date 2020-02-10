@@ -1,9 +1,8 @@
-echo $PATH
-pacman --sync --noconfirm --needed base-devel mingw-w64-x86_64-pkg-config
-pacman --sync --noconfirm --needed p7zip
-pacman --sync --noconfirm --needed zlib
-pacman --sync --noconfirm --needed openssl libopenssl openssl-devel gnutls libgnutls libgnutls-devel mingw-w64-x86_64-gnutls
-
+echo "=================================================="
+echo "Env:"
+which cl
+which link
+echo "=================================================="
 wget http://www.tortall.net/projects/yasm/releases/yasm-1.3.0-win64.exe -O /bin/yasm.exe
 
 ./configure \
